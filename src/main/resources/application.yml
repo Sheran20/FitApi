@@ -7,3 +7,25 @@ management:
     web:
       exposure:
         include: health,info
+
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/fitdb;
+    driverClassName: org.h2.Driver
+    username: abc
+    password: 123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    defer-datasource-initialization: true   # <-- important
+
+  sql:
+    init:
+      mode: never                           # ensure data.sql runs
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
