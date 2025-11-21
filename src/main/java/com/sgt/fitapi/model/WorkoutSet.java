@@ -1,9 +1,11 @@
 package com.sgt.fitapi.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "workout_sets")
 public class WorkoutSet {
@@ -47,7 +49,7 @@ public class WorkoutSet {
     @Column(length = 500)
     private String notes;
 
-    protected WorkoutSet() {}
+    public WorkoutSet() {}
 
     public WorkoutSet(WorkoutSession workoutSession,
                       Exercise exercise,

@@ -3,8 +3,6 @@ package com.sgt.fitapi.controller;
 import com.sgt.fitapi.model.Exercise;
 import com.sgt.fitapi.repository.ExerciseRepository;
 import com.sgt.fitapi.repository.ExerciseSpecs;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.web.bind.annotation.*;
 
