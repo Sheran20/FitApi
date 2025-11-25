@@ -1,5 +1,7 @@
 package com.sgt.fitapi.controller;
 
+import com.sgt.fitapi.dto.workout.*;
+import com.sgt.fitapi.mapper.WorkoutMapper;
 import com.sgt.fitapi.model.Exercise;
 import com.sgt.fitapi.model.WorkoutSession;
 import com.sgt.fitapi.model.WorkoutSet;
@@ -7,9 +9,8 @@ import com.sgt.fitapi.repository.ExerciseRepository;
 import com.sgt.fitapi.repository.WorkoutSessionRepository;
 import com.sgt.fitapi.repository.WorkoutSessionSpecs;
 import com.sgt.fitapi.repository.WorkoutSetRepository;
+import com.sgt.fitapi.service.WorkoutSummaryService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Size;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -22,76 +23,52 @@ import java.util.List;
 @RequestMapping("/workouts")
 public class WorkoutSessionController {
 
-    private final WorkoutSessionRepository repo;
-
+    private final WorkoutSessionRepository sessionRepo;
     private final WorkoutSetRepository workoutSetRepo;
     private final ExerciseRepository exerciseRepo;
+    private final WorkoutSummaryService summaryService;
 
-    public WorkoutSessionController(WorkoutSessionRepository repo,
+    public WorkoutSessionController(WorkoutSessionRepository sessionRepo,
                                     WorkoutSetRepository workoutSetRepo,
-                                    ExerciseRepository exerciseRepo) {
-        this.repo = repo;
+                                    ExerciseRepository exerciseRepo,
+                                    WorkoutSummaryService summaryService) {
+        this.sessionRepo = sessionRepo;
         this.workoutSetRepo = workoutSetRepo;
         this.exerciseRepo = exerciseRepo;
+        this.summaryService = summaryService;
     }
 
-    public static class CreateWorkoutSetRequest {
-
-        @NotNull
-        public Long exerciseId;
-
-        @NotNull
-        public Integer setNumber;
-
-        @NotNull
-        public Integer reps;
-
-        @NotNull
-        public Double weight;
-
-        public Double rpe;
-        public Integer restSeconds;
-
-        @Size(max = 500)
-        public String notes;
-    }
-
-    public static class WorkoutSetView {
-        public Long id;
-        public Long exerciseId;
-        public String exerciseName;
-        public Integer setNumber;
-        public Integer reps;
-        public Double weight;
-        public Double rpe;
-        public Integer restSeconds;
-        public String notes;
-    }
-
-    public static class WorkoutFullView {
-        public Long id;
-        public String userId;
-        public java.time.LocalDateTime startedAt;
-        public java.time.LocalDateTime endedAt;
-        public String timezone;
-        public String notes;
-        public java.util.List<WorkoutSetView> sets;
-    }
-
+    // ========= Core CRUD =========
 
     // POST /workouts
     @PostMapping
-    public WorkoutSession create(@Valid @RequestBody WorkoutSession body) {
-        // simple guard: endedAt >= startedAt if present
-        if (body.getEndedAt() != null && body.getEndedAt().isBefore(body.getStartedAt())) {
+    public WorkoutSessionView create(@Valid @RequestBody CreateWorkoutSessionRequest body) {
+
+        // Build entity using mapper
+        WorkoutSession session = WorkoutMapper.fromCreateRequest(body);
+
+        // Validate date order
+        if (session.getEndedAt() != null &&
+                session.getEndedAt().isBefore(session.getStartedAt())) {
             throw new IllegalArgumentException("endedAt must be >= startedAt");
         }
-        return repo.save(body);
+
+        // Save
+        WorkoutSession saved = sessionRepo.save(session);
+        return WorkoutMapper.toSessionView(saved);
+    }
+
+    // GET /workouts/{id}
+    @GetMapping("/{id}")
+    public WorkoutSessionView get(@PathVariable Long id) {
+        var session = sessionRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("WorkoutSession not found"));
+        return WorkoutMapper.toSessionView(session);
     }
 
     // GET /workouts?userId=&from=&to=&page=&size=&sort=startedAt,desc
     @GetMapping
-    public Page<WorkoutSession> list(
+    public Page<WorkoutSessionView> list(
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) LocalDateTime from,
             @RequestParam(required = false) LocalDateTime to,
@@ -102,64 +79,59 @@ public class WorkoutSessionController {
                 WorkoutSessionSpecs.startedAtFrom(from),
                 WorkoutSessionSpecs.startedAtTo(to)
         );
-        return repo.findAll(spec, pageable);
+
+        Page<WorkoutSession> page = sessionRepo.findAll(spec, pageable);
+        return page.map(WorkoutMapper::toSessionView);
     }
 
-    // GET /workouts/{id}
-    @GetMapping("/{id}")
-    public WorkoutSession get(@PathVariable Long id) {
-        return repo.findById(id).orElseThrow(() -> new RuntimeException("WorkoutSession not found"));
+    // PUT /workouts/{id}
+    @PutMapping("/{id}")
+    public WorkoutSessionView update(@PathVariable Long id,
+                                     @Valid @RequestBody UpdateWorkoutSessionRequest body) {
+        var existing = sessionRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("WorkoutSession not found"));
+
+        // Apply changes from DTO to entity
+        WorkoutMapper.applyUpdate(existing, body);
+
+        // Guard: endedAt >= startedAt if present
+        if (existing.getEndedAt() != null &&
+                existing.getEndedAt().isBefore(existing.getStartedAt())) {
+            throw new IllegalArgumentException("endedAt must be >= startedAt");
+        }
+
+        WorkoutSession saved = sessionRepo.save(existing);
+        return WorkoutMapper.toSessionView(saved);
     }
 
+    // DELETE /workouts/{id}
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        sessionRepo.deleteById(id);
+    }
+
+    // ========= Nested workout sets =========
+
+    // GET /workouts/{id}/sets[?exerciseId=]
     @GetMapping("/{id}/sets")
-    public List<WorkoutSet> listSets(@PathVariable Long id) {
-        // ensure session exists (gives 500 with message if not)
-        repo.findById(id).orElseThrow(() -> new RuntimeException("WorkoutSession not found"));
+    public List<WorkoutSet> listSets(@PathVariable Long id,
+                                     @RequestParam(required = false) Long exerciseId) {
+        // ensure session exists
+        sessionRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("WorkoutSession not found: " + id));
 
+        if (exerciseId != null) {
+            return workoutSetRepo.findByWorkoutSessionIdAndExerciseId(id, exerciseId);
+        }
         return workoutSetRepo.findByWorkoutSessionId(id);
     }
 
-    @GetMapping("/{id}/full")
-    public WorkoutFullView getFullWorkout(@PathVariable Long id) {
-        // 1) Load the workout session or fail
-        var session = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("WorkoutSession not found: " + id));
-
-        // 2) Load all sets for this workout
-        var sets = workoutSetRepo.findByWorkoutSessionId(id);
-
-        // 3) Map to DTO
-        WorkoutFullView view = new WorkoutFullView();
-        view.id = session.getId();
-        view.userId = session.getUserId();
-        view.startedAt = session.getStartedAt();
-        view.endedAt = session.getEndedAt();
-        view.timezone = session.getTimezone();
-        view.notes = session.getNotes();
-
-        // Convert each WorkoutSet entity into a WorkoutSetView DTO and collect into a list
-        view.sets = sets.stream().map(ws -> {
-            WorkoutSetView s = new WorkoutSetView();
-            s.id = ws.getId();
-            s.exerciseId = ws.getExercise().getId();
-            s.exerciseName = ws.getExercise().getName();
-            s.setNumber = ws.getSetNumber();
-            s.reps = ws.getReps();
-            s.weight = ws.getWeight();
-            s.rpe = ws.getRpe();
-            s.restSeconds = ws.getRestSeconds();
-            s.notes = ws.getNotes();
-            return s;
-        }).toList();
-
-        return view;
-    }
-
+    // POST /workouts/{id}/sets
     @PostMapping("/{id}/sets")
     public WorkoutSet addSet(@PathVariable Long id,
                              @Valid @RequestBody CreateWorkoutSetRequest body) {
 
-        WorkoutSession session = repo.findById(id)
+        WorkoutSession session = sessionRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("WorkoutSession not found: " + id));
 
         Exercise exercise = exerciseRepo.findById(body.exerciseId)
@@ -178,21 +150,20 @@ public class WorkoutSessionController {
         return workoutSetRepo.save(set);
     }
 
-    // PUT /workouts/{id}
-    @PutMapping("/{id}")
-    public WorkoutSession update(@PathVariable Long id, @Valid @RequestBody WorkoutSession body) {
-        var existing = repo.findById(id).orElseThrow(() -> new RuntimeException("WorkoutSession not found"));
-        existing.setUserId(body.getUserId());
-        existing.setStartedAt(body.getStartedAt());
-        existing.setEndedAt(body.getEndedAt());
-        existing.setTimezone(body.getTimezone());
-        existing.setNotes(body.getNotes());
-        return repo.save(existing);
+    // ========= Analytics / views =========
+
+    // GET /workouts/{id}/full
+    @GetMapping("/{id}/full")
+    public WorkoutFullView getFull(@PathVariable Long id) {
+        var session = sessionRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("WorkoutSession not found"));
+        var sets = workoutSetRepo.findByWorkoutSessionId(id);
+        return WorkoutMapper.toFullView(session, sets);
     }
 
-    // DELETE /workouts/{id}
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
-        repo.deleteById(id);
+    // GET /workouts/{id}/summary
+    @GetMapping("/{id}/summary")
+    public WorkoutSummaryView getSummary(@PathVariable Long id) {
+        return summaryService.calculateSummary(id);
     }
 }

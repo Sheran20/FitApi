@@ -37,7 +37,7 @@ public class WorkoutSession {
     @Column(length = 500)
     private String notes;
 
-    protected WorkoutSession() {}
+    public WorkoutSession() {}
 
     public WorkoutSession(String userId, LocalDateTime startedAt, String timezone, String notes) {
         this.userId = userId;

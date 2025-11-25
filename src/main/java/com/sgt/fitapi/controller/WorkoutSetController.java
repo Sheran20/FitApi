@@ -1,7 +1,10 @@
 package com.sgt.fitapi.controller;
 
+import com.sgt.fitapi.dto.workout.WorkoutSetView;
+import com.sgt.fitapi.mapper.WorkoutMapper;
 import com.sgt.fitapi.model.WorkoutSet;
 import com.sgt.fitapi.repository.WorkoutSetRepository;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,29 +21,41 @@ public class WorkoutSetController {
 
     // GET /workout-sets?workoutSessionId=&exerciseId=
     @GetMapping
-    public List<WorkoutSet> list(
+    public List<WorkoutSetView> list(
             @RequestParam(required = false) Long workoutSessionId,
             @RequestParam(required = false) Long exerciseId
     ) {
+        List<WorkoutSet> sets;
+
         if (workoutSessionId != null && exerciseId != null) {
-            return workoutSetRepo.findByWorkoutSessionIdAndExerciseId(workoutSessionId, exerciseId);
+            sets = workoutSetRepo.findByWorkoutSessionIdAndExerciseId(workoutSessionId, exerciseId);
         } else if (workoutSessionId != null) {
-            return workoutSetRepo.findByWorkoutSessionId(workoutSessionId);
+            sets = workoutSetRepo.findByWorkoutSessionId(workoutSessionId);
         } else {
-            return workoutSetRepo.findAll();
+            sets = workoutSetRepo.findAll();
         }
+
+        return sets.stream()
+                .map(WorkoutMapper::toSetView)
+                .toList();
     }
 
     // GET /workout-sets/{id}
     @GetMapping("/{id}")
-    public WorkoutSet get(@PathVariable Long id) {
-        return workoutSetRepo.findById(id)
+    public WorkoutSetView get(@PathVariable Long id) {
+        var set = workoutSetRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("WorkoutSet not found"));
+        return WorkoutMapper.toSetView(set);
     }
 
     // DELETE /workout-sets/{id}
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        if (!workoutSetRepo.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+
         workoutSetRepo.deleteById(id);
+        return ResponseEntity.noContent().build(); // 204
     }
 }
