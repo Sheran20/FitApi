@@ -7,10 +7,6 @@ import java.time.LocalDateTime;
 
 public class CreateWorkoutSessionRequest {
 
-    @NotBlank
-    @Size(max = 64)
-    public String userId;
-
     @NotNull
     public LocalDateTime startedAt;
 

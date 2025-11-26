@@ -2,9 +2,13 @@ package com.sgt.fitapi.controller;
 
 import com.sgt.fitapi.dto.workout.WorkoutSetView;
 import com.sgt.fitapi.mapper.WorkoutMapper;
+import com.sgt.fitapi.model.WorkoutSession;
 import com.sgt.fitapi.model.WorkoutSet;
+import com.sgt.fitapi.repository.WorkoutSessionRepository;
 import com.sgt.fitapi.repository.WorkoutSetRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,48 +18,85 @@ import java.util.List;
 public class WorkoutSetController {
 
     private final WorkoutSetRepository workoutSetRepo;
+    private final WorkoutSessionRepository sessionRepo;
 
-    public WorkoutSetController(WorkoutSetRepository workoutSetRepo) {
+    public WorkoutSetController(WorkoutSetRepository workoutSetRepo,
+                                WorkoutSessionRepository sessionRepo) {
         this.workoutSetRepo = workoutSetRepo;
+        this.sessionRepo = sessionRepo;
     }
 
     // GET /workout-sets?workoutSessionId=&exerciseId=
     @GetMapping
-    public List<WorkoutSetView> list(
+    public ResponseEntity<List<WorkoutSetView>> list(
             @RequestParam(required = false) Long workoutSessionId,
-            @RequestParam(required = false) Long exerciseId
+            @RequestParam(required = false) Long exerciseId,
+            Authentication authentication
     ) {
-        List<WorkoutSet> sets;
+        String userEmail = authentication.getName();
 
-        if (workoutSessionId != null && exerciseId != null) {
-            sets = workoutSetRepo.findByWorkoutSessionIdAndExerciseId(workoutSessionId, exerciseId);
-        } else if (workoutSessionId != null) {
-            sets = workoutSetRepo.findByWorkoutSessionId(workoutSessionId);
-        } else {
-            sets = workoutSetRepo.findAll();
+        // For security, we now require workoutSessionId.
+        if (workoutSessionId == null) {
+            // No session specified -> ambiguous / unsafe in a multi-tenant app
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
-        return sets.stream()
+        // ensure session exists and belongs to this user
+        WorkoutSession session = sessionRepo.findByIdAndUserId(workoutSessionId, userEmail)
+                .orElse(null);
+
+        if (session == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        List<WorkoutSet> sets;
+
+        if (exerciseId != null) {
+            sets = workoutSetRepo.findByWorkoutSessionIdAndExerciseId(session.getId(), exerciseId);
+        } else {
+            sets = workoutSetRepo.findByWorkoutSessionId(session.getId());
+        }
+
+        List<WorkoutSetView> views = sets.stream()
                 .map(WorkoutMapper::toSetView)
                 .toList();
+
+        return ResponseEntity.ok(views);
     }
 
     // GET /workout-sets/{id}
     @GetMapping("/{id}")
-    public WorkoutSetView get(@PathVariable Long id) {
-        var set = workoutSetRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("WorkoutSet not found"));
-        return WorkoutMapper.toSetView(set);
+    public ResponseEntity<WorkoutSetView> get(@PathVariable Long id,
+                                              Authentication authentication) {
+        String userEmail = authentication.getName();
+
+        return workoutSetRepo.findById(id)
+                .filter(set -> {
+                    WorkoutSession session = set.getWorkoutSession();
+                    return session != null && userEmail.equals(session.getUserId());
+                })
+                .map(WorkoutMapper::toSetView)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
     // DELETE /workout-sets/{id}
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!workoutSetRepo.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Void> delete(@PathVariable Long id,
+                                       Authentication authentication) {
 
-        workoutSetRepo.deleteById(id);
-        return ResponseEntity.noContent().build(); // 204
+        String userEmail = authentication.getName();
+
+        return workoutSetRepo.findById(id)
+                .filter(set -> {
+                    var session = set.getWorkoutSession();
+                    return session != null && userEmail.equals(session.getUserId());
+                })
+                .map(set -> {
+                    workoutSetRepo.delete(set);
+                    return ResponseEntity.noContent().<Void>build();   // <<-- FIXED
+                })
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).<Void>build()); // <<-- FIXED
     }
+
 }

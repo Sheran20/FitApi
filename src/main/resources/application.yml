@@ -23,7 +23,7 @@ spring:
 
   sql:
     init:
-      mode: never                           # ensure data.sql runs
+      mode: always                           # ensure data.sql runs
 
   h2:
     console:

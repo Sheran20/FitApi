@@ -14,8 +14,13 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -42,40 +47,57 @@ public class WorkoutSessionController {
 
     // POST /workouts
     @PostMapping
-    public WorkoutSessionView create(@Valid @RequestBody CreateWorkoutSessionRequest body) {
+    public ResponseEntity<WorkoutSessionView> create(@Valid @RequestBody CreateWorkoutSessionRequest body,
+                                                     Authentication authentication) {
 
-        // Build entity using mapper
-        WorkoutSession session = WorkoutMapper.fromCreateRequest(body);
+        String userEmail = authentication.getName(); // comes from JWT
+
+        // Build entity using mapper + current user
+        WorkoutSession session = WorkoutMapper.fromCreateRequest(body, userEmail);
 
         // Validate date order
         if (session.getEndedAt() != null &&
                 session.getEndedAt().isBefore(session.getStartedAt())) {
-            throw new IllegalArgumentException("endedAt must be >= startedAt");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "endedAt must be >= startedAt"
+            );
         }
 
         // Save
         WorkoutSession saved = sessionRepo.save(session);
-        return WorkoutMapper.toSessionView(saved);
+        WorkoutSessionView view = WorkoutMapper.toSessionView(saved);
+
+        // Return 201 with Location header
+        return ResponseEntity
+                .created(URI.create("/workouts/" + saved.getId()))
+                .body(view);
     }
 
     // GET /workouts/{id}
     @GetMapping("/{id}")
-    public WorkoutSessionView get(@PathVariable Long id) {
-        var session = sessionRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("WorkoutSession not found"));
-        return WorkoutMapper.toSessionView(session);
+    public ResponseEntity<WorkoutSessionView> get(@PathVariable Long id,
+                                                  Authentication authentication) {
+        String userEmail = authentication.getName();
+
+        return sessionRepo.findByIdAndUserId(id, userEmail)
+                .map(WorkoutMapper::toSessionView)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
-    // GET /workouts?userId=&from=&to=&page=&size=&sort=startedAt,desc
+    // GET /workouts?from=&to=&page=&size=&sort=startedAt,desc
     @GetMapping
     public Page<WorkoutSessionView> list(
-            @RequestParam(required = false) String userId,
             @RequestParam(required = false) LocalDateTime from,
             @RequestParam(required = false) LocalDateTime to,
-            Pageable pageable
+            Pageable pageable,
+            Authentication authentication
     ) {
+        String userEmail = authentication.getName();
+
         var spec = Specification.allOf(
-                WorkoutSessionSpecs.userEquals(userId),
+                WorkoutSessionSpecs.userEquals(userEmail),
                 WorkoutSessionSpecs.startedAtFrom(from),
                 WorkoutSessionSpecs.startedAtTo(to)
         );
@@ -86,10 +108,17 @@ public class WorkoutSessionController {
 
     // PUT /workouts/{id}
     @PutMapping("/{id}")
-    public WorkoutSessionView update(@PathVariable Long id,
-                                     @Valid @RequestBody UpdateWorkoutSessionRequest body) {
-        var existing = sessionRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("WorkoutSession not found"));
+    public ResponseEntity<WorkoutSessionView> update(@PathVariable Long id,
+                                                     @Valid @RequestBody UpdateWorkoutSessionRequest body,
+                                                     Authentication authentication) {
+        String userEmail = authentication.getName();
+
+        var optional = sessionRepo.findByIdAndUserId(id, userEmail);
+        if (optional.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        WorkoutSession existing = optional.get();
 
         // Apply changes from DTO to entity
         WorkoutMapper.applyUpdate(existing, body);
@@ -97,45 +126,86 @@ public class WorkoutSessionController {
         // Guard: endedAt >= startedAt if present
         if (existing.getEndedAt() != null &&
                 existing.getEndedAt().isBefore(existing.getStartedAt())) {
-            throw new IllegalArgumentException("endedAt must be >= startedAt");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "endedAt must be >= startedAt"
+            );
         }
 
         WorkoutSession saved = sessionRepo.save(existing);
-        return WorkoutMapper.toSessionView(saved);
+        return ResponseEntity.ok(WorkoutMapper.toSessionView(saved));
     }
 
     // DELETE /workouts/{id}
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
-        sessionRepo.deleteById(id);
+    public ResponseEntity<Void> delete(@PathVariable Long id,
+                                       Authentication authentication) {
+        String userEmail = authentication.getName();
+
+        var optional = sessionRepo.findByIdAndUserId(id, userEmail);
+        if (optional.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        sessionRepo.delete(optional.get());
+        return ResponseEntity.noContent().build(); // 204 No Content
     }
 
     // ========= Nested workout sets =========
 
     // GET /workouts/{id}/sets[?exerciseId=]
     @GetMapping("/{id}/sets")
-    public List<WorkoutSet> listSets(@PathVariable Long id,
-                                     @RequestParam(required = false) Long exerciseId) {
-        // ensure session exists
-        sessionRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("WorkoutSession not found: " + id));
+    public ResponseEntity<List<WorkoutSetView>> listSets(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long exerciseId,
+            Authentication authentication
+    ) {
+        String userEmail = authentication.getName();
+
+        // ensure session exists and belongs to this user
+        WorkoutSession session = sessionRepo.findByIdAndUserId(id, userEmail)
+                .orElse(null);
+
+        if (session == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        List<WorkoutSet> sets;
+        Long sessionId = session.getId();
 
         if (exerciseId != null) {
-            return workoutSetRepo.findByWorkoutSessionIdAndExerciseId(id, exerciseId);
+            sets = workoutSetRepo.findByWorkoutSessionIdAndExerciseId(sessionId, exerciseId);
+        } else {
+            sets = workoutSetRepo.findByWorkoutSessionId(sessionId);
         }
-        return workoutSetRepo.findByWorkoutSessionId(id);
+
+        List<WorkoutSetView> views = sets.stream()
+                .map(WorkoutMapper::toSetView)
+                .toList();
+
+        return ResponseEntity.ok(views);
     }
 
     // POST /workouts/{id}/sets
     @PostMapping("/{id}/sets")
-    public WorkoutSet addSet(@PathVariable Long id,
-                             @Valid @RequestBody CreateWorkoutSetRequest body) {
+    public ResponseEntity<WorkoutSetView> addSet(@PathVariable Long id,
+                                                 @Valid @RequestBody CreateWorkoutSetRequest body,
+                                                 Authentication authentication) {
 
-        WorkoutSession session = sessionRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("WorkoutSession not found: " + id));
+        String userEmail = authentication.getName();
+
+        WorkoutSession session = sessionRepo.findByIdAndUserId(id, userEmail)
+                .orElse(null);
+
+        if (session == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
 
         Exercise exercise = exerciseRepo.findById(body.exerciseId)
-                .orElseThrow(() -> new RuntimeException("Exercise not found: " + body.exerciseId));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Exercise not found: " + body.exerciseId
+                ));
 
         WorkoutSet set = new WorkoutSet();
         set.setWorkoutSession(session);
@@ -147,23 +217,43 @@ public class WorkoutSessionController {
         set.setRestSeconds(body.restSeconds);
         set.setNotes(body.notes);
 
-        return workoutSetRepo.save(set);
+        WorkoutSet saved = workoutSetRepo.save(set);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(WorkoutMapper.toSetView(saved));
     }
 
     // ========= Analytics / views =========
 
     // GET /workouts/{id}/full
     @GetMapping("/{id}/full")
-    public WorkoutFullView getFull(@PathVariable Long id) {
-        var session = sessionRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("WorkoutSession not found"));
+    public ResponseEntity<WorkoutFullView> getFull(@PathVariable Long id,
+                                                   Authentication authentication) {
+        String userEmail = authentication.getName();
+
+        var optional = sessionRepo.findByIdAndUserId(id, userEmail);
+        if (optional.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        WorkoutSession session = optional.get();
         var sets = workoutSetRepo.findByWorkoutSessionId(id);
-        return WorkoutMapper.toFullView(session, sets);
+
+        WorkoutFullView view = WorkoutMapper.toFullView(session, sets);
+        return ResponseEntity.ok(view);
     }
 
     // GET /workouts/{id}/summary
     @GetMapping("/{id}/summary")
-    public WorkoutSummaryView getSummary(@PathVariable Long id) {
-        return summaryService.calculateSummary(id);
+    public ResponseEntity<WorkoutSummaryView> getSummary(@PathVariable Long id,
+                                                         Authentication authentication) {
+        String userEmail = authentication.getName();
+
+        var optional = sessionRepo.findByIdAndUserId(id, userEmail);
+        if (optional.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        WorkoutSummaryView summary = summaryService.calculateSummary(id);
+        return ResponseEntity.ok(summary);
     }
 }

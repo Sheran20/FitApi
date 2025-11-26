@@ -4,6 +4,8 @@ import com.sgt.fitapi.model.Exercise;
 import com.sgt.fitapi.repository.ExerciseRepository;
 import com.sgt.fitapi.repository.ExerciseSpecs;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,6 +20,7 @@ public class ExerciseController {
         this.repo = repo;
     }
 
+    // GET /exercises?search=&muscleGroup=&equipment=&isIsometric=
     @GetMapping
     public List<Exercise> list(
             @RequestParam(required = false) String search,
@@ -32,11 +35,14 @@ public class ExerciseController {
                 ExerciseSpecs.isIsometricEquals(isIsometric)
         );
 
-        return repo.findAll(spec); // returns List<Exercise>
+        return repo.findAll(spec);
     }
 
+    // GET /exercises/{id}
     @GetMapping("/{id}")
-    public Exercise get(@PathVariable Long id) {
-        return repo.findById(id).orElseThrow(() -> new RuntimeException("Exercise not found"));
+    public ResponseEntity<Exercise> get(@PathVariable Long id) {
+        return repo.findById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 }

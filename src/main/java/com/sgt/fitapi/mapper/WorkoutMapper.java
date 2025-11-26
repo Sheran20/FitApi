@@ -52,15 +52,16 @@ public class WorkoutMapper {
     }
 
     // DTO -> Entity (for create)
-    public static WorkoutSession fromCreateRequest(CreateWorkoutSessionRequest body) {
+    public static WorkoutSession fromCreateRequest(CreateWorkoutSessionRequest body, String userId) {
         WorkoutSession session = new WorkoutSession();
-        session.setUserId(body.userId);           // later: override from JWT
+        session.setUserId(userId);       // now comes from authenticated user
         session.setStartedAt(body.startedAt);
         session.setEndedAt(body.endedAt);
         session.setTimezone(body.timezone);
         session.setNotes(body.notes);
         return session;
     }
+
 
     public static void applyUpdate(WorkoutSession session, UpdateWorkoutSessionRequest body) {
         session.setStartedAt(body.startedAt);
