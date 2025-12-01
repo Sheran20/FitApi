@@ -10,22 +10,21 @@ management:
 
 spring:
   datasource:
-    url: jdbc:h2:file:./data/fitdb;
-    driverClassName: org.h2.Driver
-    username: abc
-    password: 123
+    url: jdbc:postgresql://localhost:5432/fitapidb
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: postgres
 
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
-    defer-datasource-initialization: true   # <-- important
+    defer-datasource-initialization: true
 
   sql:
     init:
-      mode: always                           # ensure data.sql runs
-
+      mode: always
   h2:
     console:
-      enabled: true
+      enabled: false
       path: /h2-console
