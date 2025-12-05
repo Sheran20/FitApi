@@ -1,30 +1,37 @@
-springdoc:
-  swagger-ui.path: /swagger-ui.html
-  api-docs.path: /v3/api-docs
+  spring:
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
+    profiles:
+      default: local
+    
+    application:
+      name: fitapi
 
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/fitapidb
-    driver-class-name: org.postgresql.Driver
-    username: postgres
-    password: postgres
+    jpa:
+      hibernate:
+        ddl-auto: update
+      show-sql: true
+      defer-datasource-initialization: true
 
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    defer-datasource-initialization: true
+    sql:
+      init:
+        mode: always
 
-  sql:
-    init:
-      mode: always
-  h2:
-    console:
-      enabled: false
-      path: /h2-console
+    h2:
+      console:
+        enabled: false
+
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-ms: 3600000
+
+  springdoc:
+    swagger-ui:
+      path: /swagger-ui.html
+    api-docs:
+      path: /v3/api-docs
+
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info

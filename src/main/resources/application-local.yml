@@ -1,0 +1,6 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/fitapidb
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:fitapi}
+    password: ${DB_PASSWORD:fitapi}

@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16
+    container_name: fitapi-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-fitapidb}
+      POSTGRES_USER: ${DB_USERNAME:-fitapi}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-fitapi}
+    ports:
+      - "5433:5432"   # host:container (5433 on host, 5432 inside Docker network)
+    volumes:
+      - fitapi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-fitapi} -d ${DB_NAME:-fitapidb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build: .
+    container_name: fitapi-app
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_NAME: ${DB_NAME:-fitapidb}
+      DB_USERNAME: ${DB_USERNAME:-fitapi}
+      DB_PASSWORD: ${DB_PASSWORD:-fitapi}
+      JWT_SECRET: ${JWT_SECRET}
+
+volumes:
+  fitapi_pgdata:

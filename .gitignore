@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Secrets / environment
+.env
+.env.*
+application-secrets.yml
+application-*.local.yml
+*.jks
+*.p12
