@@ -1,37 +1,40 @@
-  spring:
+spring:
 
-    profiles:
-      default: local
-    
-    application:
-      name: fitapi
+  profiles:
+    default: local
+  
+  application:
+    name: fitapi
 
-    jpa:
-      hibernate:
-        ddl-auto: update
-      show-sql: true
-      defer-datasource-initialization: true
+  jpa:
+    show-sql: true
+    defer-datasource-initialization: false
+    hibernate:
+      ddl-auto: update
 
-    sql:
-      init:
-        mode: always
+  sql:
+    init:
+      mode: never
 
-    h2:
-      console:
-        enabled: false
+  h2:
+    console:
+      enabled: false
 
-  jwt:
-    secret: ${JWT_SECRET}
-    expiration-ms: 3600000
+  flyway:
+    enabled: true
 
-  springdoc:
-    swagger-ui:
-      path: /swagger-ui.html
-    api-docs:
-      path: /v3/api-docs
+jwt:
+  secret: ${JWT_SECRET:JWT_SECRET_LOCAL}
+  expiration-ms: 3600000
 
-  management:
-    endpoints:
-      web:
-        exposure:
-          include: health,info
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

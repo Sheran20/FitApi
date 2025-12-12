@@ -1,13 +1,13 @@
 services:
   db:
-    image: postgres:16
+    image: postgres:15
     container_name: fitapi-postgres
     environment:
       POSTGRES_DB: ${DB_NAME:-fitapidb}
       POSTGRES_USER: ${DB_USERNAME:-fitapi}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-fitapi}
     ports:
-      - "5433:5432"   # host:container (5433 on host, 5432 inside Docker network)
+      - "5433:5432"
     volumes:
       - fitapi_pgdata:/var/lib/postgresql/data
     healthcheck:

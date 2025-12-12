@@ -13,7 +13,6 @@ public interface WorkoutSessionRepository extends
         JpaRepository<WorkoutSession, Long>,
         JpaSpecificationExecutor<WorkoutSession> {
 
-    // convenience method if you want simple date filtering without specs
     Page<WorkoutSession> findByUserIdAndStartedAtBetween(String userId,
                                                          LocalDateTime from,
                                                          LocalDateTime to,
