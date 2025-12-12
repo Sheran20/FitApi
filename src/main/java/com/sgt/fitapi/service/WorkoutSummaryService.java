@@ -6,7 +6,9 @@ import com.sgt.fitapi.model.WorkoutSession;
 import com.sgt.fitapi.model.WorkoutSet;
 import com.sgt.fitapi.repository.WorkoutSessionRepository;
 import com.sgt.fitapi.repository.WorkoutSetRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 
@@ -22,10 +24,13 @@ public class WorkoutSummaryService {
         this.setRepo = setRepo;
     }
 
-    public WorkoutSummaryView calculateSummary(Long workoutId) {
-
-        WorkoutSession session = sessionRepo.findById(workoutId)
-                .orElseThrow(() -> new RuntimeException("WorkoutSession not found: " + workoutId));
+    public WorkoutSummaryView calculateSummary(Long workoutId, String userId) {
+        // Enforce ownership here to prevent cross-tenant access if new callers skip controller checks.
+        WorkoutSession session = sessionRepo.findByIdAndUserId(workoutId, userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "WorkoutSession not found: " + workoutId
+                ));
 
         List<WorkoutSet> sets = setRepo.findByWorkoutSessionId(workoutId);
 

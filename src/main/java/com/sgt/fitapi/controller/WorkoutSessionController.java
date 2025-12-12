@@ -248,12 +248,7 @@ public class WorkoutSessionController {
                                                          Authentication authentication) {
         String userEmail = authentication.getName();
 
-        var optional = sessionRepo.findByIdAndUserId(id, userEmail);
-        if (optional.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
-
-        WorkoutSummaryView summary = summaryService.calculateSummary(id);
+        WorkoutSummaryView summary = summaryService.calculateSummary(id, userEmail);
         return ResponseEntity.ok(summary);
     }
 }
