@@ -5,6 +5,7 @@ import com.sgt.fitapi.dto.auth.LoginRequest;
 import com.sgt.fitapi.dto.auth.RegisterRequest;
 import com.sgt.fitapi.model.User;
 import com.sgt.fitapi.repository.UserRepository;
+import com.sgt.fitapi.security.LoginRateLimiter;
 import com.sgt.fitapi.security.JwtService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -20,12 +21,16 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final LoginRateLimiter loginRateLimiter;
 
     public AuthController(UserRepository userRepository,
-                          PasswordEncoder passwordEncoder, JwtService jwtService) {
+                          PasswordEncoder passwordEncoder,
+                          JwtService jwtService,
+                          LoginRateLimiter loginRateLimiter) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.loginRateLimiter = loginRateLimiter;
     }
 
     @PostMapping("/register")
@@ -57,11 +62,15 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+        String key = request.email.toLowerCase();
+        loginRateLimiter.throwIfBlocked(key);
+
         // find user by email
         User user = userRepository.findByEmail(request.email)
                 .orElse(null);
 
         if (user == null) {
+            loginRateLimiter.onFailure(key);
             // don't reveal whether email exists; generic error
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
@@ -75,11 +84,13 @@ public class AuthController {
         );
 
         if (!passwordMatches) {
+            loginRateLimiter.onFailure(key);
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
                     .body(new AuthResponse("Invalid email or password"));
         }
 
+        loginRateLimiter.onSuccess(key);
         String token = jwtService.generateToken(user);
 
         return ResponseEntity.ok(new AuthResponse("Login successful", token));

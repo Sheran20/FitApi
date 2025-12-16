@@ -40,7 +40,7 @@ public class Exercise {
     @Column(nullable = false)
     private String movementType;
 
-    protected Exercise() {}
+    public Exercise() {}
 
     public Exercise(String name, String muscleGroup, String equipment, boolean isIsometric, String movementType) {
         this.name = name;
