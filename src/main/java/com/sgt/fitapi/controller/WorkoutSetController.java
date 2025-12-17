@@ -8,8 +8,9 @@ import com.sgt.fitapi.repository.WorkoutSessionRepository;
 import com.sgt.fitapi.repository.WorkoutSetRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -31,9 +32,12 @@ public class WorkoutSetController {
     public ResponseEntity<List<WorkoutSetView>> list(
             @RequestParam(required = false) Long workoutSessionId,
             @RequestParam(required = false) Long exerciseId,
-            Authentication authentication
+            @AuthenticationPrincipal com.sgt.fitapi.model.User user
     ) {
-        String userEmail = authentication.getName();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
         // For security, we now require workoutSessionId.
         if (workoutSessionId == null) {
@@ -42,7 +46,7 @@ public class WorkoutSetController {
         }
 
         // ensure session exists and belongs to this user
-        WorkoutSession session = sessionRepo.findByIdAndUserId(workoutSessionId, userEmail)
+        WorkoutSession session = sessionRepo.findByIdAndUserId(workoutSessionId, userId)
                 .orElse(null);
 
         if (session == null) {
@@ -67,13 +71,16 @@ public class WorkoutSetController {
     // GET /workout-sets/{id}
     @GetMapping("/{id}")
     public ResponseEntity<WorkoutSetView> get(@PathVariable Long id,
-                                              Authentication authentication) {
-        String userEmail = authentication.getName();
+                                              @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
         return workoutSetRepo.findById(id)
                 .filter(set -> {
                     WorkoutSession session = set.getWorkoutSession();
-                    return session != null && userEmail.equals(session.getUserId());
+                    return session != null && userId.equals(session.getUserId());
                 })
                 .map(WorkoutMapper::toSetView)
                 .map(ResponseEntity::ok)
@@ -83,14 +90,17 @@ public class WorkoutSetController {
     // DELETE /workout-sets/{id}
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id,
-                                       Authentication authentication) {
+                                       @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
 
-        String userEmail = authentication.getName();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
         return workoutSetRepo.findById(id)
                 .filter(set -> {
                     var session = set.getWorkoutSession();
-                    return session != null && userEmail.equals(session.getUserId());
+                    return session != null && userId.equals(session.getUserId());
                 })
                 .map(set -> {
                     workoutSetRepo.delete(set);

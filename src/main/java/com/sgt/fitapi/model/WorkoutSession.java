@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
@@ -16,17 +16,15 @@ public class WorkoutSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // later this will come from JWT
-    @NotBlank
-    @Size(max = 64)
-    @Column(nullable = false, length = 64)
-    private String userId;
+    @NotNull
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @NotNull
     @Column(nullable = false)
-    private LocalDateTime startedAt;
+    private Instant startedAt;
 
-    private LocalDateTime endedAt;
+    private Instant endedAt;
 
     @NotBlank
     @Size(max = 64)
@@ -39,7 +37,7 @@ public class WorkoutSession {
 
     public WorkoutSession() {}
 
-    public WorkoutSession(String userId, LocalDateTime startedAt, String timezone, String notes) {
+    public WorkoutSession(Long userId, Instant startedAt, String timezone, String notes) {
         this.userId = userId;
         this.startedAt = startedAt;
         this.timezone = timezone;
@@ -47,12 +45,12 @@ public class WorkoutSession {
     }
 
     public Long getId() { return id; }
-    public String getUserId() { return userId; }
-    public void setUserId(String userId) { this.userId = userId; }
-    public LocalDateTime getStartedAt() { return startedAt; }
-    public void setStartedAt(LocalDateTime startedAt) { this.startedAt = startedAt; }
-    public LocalDateTime getEndedAt() { return endedAt; }
-    public void setEndedAt(LocalDateTime endedAt) { this.endedAt = endedAt; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public Instant getStartedAt() { return startedAt; }
+    public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
+    public Instant getEndedAt() { return endedAt; }
+    public void setEndedAt(Instant endedAt) { this.endedAt = endedAt; }
     public String getTimezone() { return timezone; }
     public void setTimezone(String timezone) { this.timezone = timezone; }
     public String getNotes() { return notes; }

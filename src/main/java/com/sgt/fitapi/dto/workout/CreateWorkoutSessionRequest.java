@@ -4,15 +4,15 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public class CreateWorkoutSessionRequest {
 
     @NotNull
     @PastOrPresent
-    public LocalDateTime startedAt;
+    public OffsetDateTime startedAt;
 
-    public LocalDateTime endedAt;
+    public OffsetDateTime endedAt;
 
     @NotBlank
     @Size(max = 64)

@@ -6,6 +6,7 @@ import com.sgt.fitapi.model.WorkoutSet;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.time.ZoneOffset;
 
 public class WorkoutMapper {
 
@@ -28,8 +29,8 @@ public class WorkoutMapper {
 
         view.id = session.getId();
         view.userId = session.getUserId();
-        view.startedAt = session.getStartedAt();
-        view.endedAt = session.getEndedAt();
+        view.startedAt = session.getStartedAt() != null ? session.getStartedAt().atOffset(ZoneOffset.UTC) : null;
+        view.endedAt = session.getEndedAt() != null ? session.getEndedAt().atOffset(ZoneOffset.UTC) : null;
         view.timezone = session.getTimezone();
         view.notes = session.getNotes();
 
@@ -44,19 +45,19 @@ public class WorkoutMapper {
         WorkoutSessionView view = new WorkoutSessionView();
         view.id = session.getId();
         view.userId = session.getUserId();
-        view.startedAt = session.getStartedAt();
-        view.endedAt = session.getEndedAt();
+        view.startedAt = session.getStartedAt() != null ? session.getStartedAt().atOffset(ZoneOffset.UTC) : null;
+        view.endedAt = session.getEndedAt() != null ? session.getEndedAt().atOffset(ZoneOffset.UTC) : null;
         view.timezone = session.getTimezone();
         view.notes = session.getNotes();
         return view;
     }
 
     // DTO -> Entity (for create)
-    public static WorkoutSession fromCreateRequest(CreateWorkoutSessionRequest body, String userId) {
+    public static WorkoutSession fromCreateRequest(CreateWorkoutSessionRequest body, Long userId) {
         WorkoutSession session = new WorkoutSession();
         session.setUserId(userId);       // now comes from authenticated user
-        session.setStartedAt(body.startedAt);
-        session.setEndedAt(body.endedAt);
+        session.setStartedAt(body.startedAt != null ? body.startedAt.toInstant() : null);
+        session.setEndedAt(body.endedAt != null ? body.endedAt.toInstant() : null);
         session.setTimezone(body.timezone);
         session.setNotes(body.notes);
         return session;
@@ -64,8 +65,8 @@ public class WorkoutMapper {
 
 
     public static void applyUpdate(WorkoutSession session, UpdateWorkoutSessionRequest body) {
-        session.setStartedAt(body.startedAt);
-        session.setEndedAt(body.endedAt);
+        session.setStartedAt(body.startedAt != null ? body.startedAt.toInstant() : null);
+        session.setEndedAt(body.endedAt != null ? body.endedAt.toInstant() : null);
         session.setTimezone(body.timezone);
         session.setNotes(body.notes);
     }

@@ -24,7 +24,7 @@ public class WorkoutSummaryService {
         this.setRepo = setRepo;
     }
 
-    public WorkoutSummaryView calculateSummary(Long workoutId, String userId) {
+    public WorkoutSummaryView calculateSummary(Long workoutId, Long userId) {
         // Enforce ownership here to prevent cross-tenant access if new callers skip controller checks.
         WorkoutSession session = sessionRepo.findByIdAndUserId(workoutId, userId)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -37,8 +37,8 @@ public class WorkoutSummaryService {
         WorkoutSummaryView summary = new WorkoutSummaryView();
         summary.id = session.getId();
         summary.userId = session.getUserId();
-        summary.startedAt = session.getStartedAt();
-        summary.endedAt = session.getEndedAt();
+        summary.startedAt = session.getStartedAt() != null ? session.getStartedAt().atOffset(java.time.ZoneOffset.UTC) : null;
+        summary.endedAt = session.getEndedAt() != null ? session.getEndedAt().atOffset(java.time.ZoneOffset.UTC) : null;
         summary.timezone = session.getTimezone();
         summary.notes = session.getNotes();
 

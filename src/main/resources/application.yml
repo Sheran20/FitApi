@@ -23,9 +23,25 @@ spring:
   flyway:
     enabled: true
 
+  jackson:
+    time-zone: UTC
+
+server:
+  shutdown: graceful
+  tomcat:
+    connection-timeout: 5s
+    threads:
+      max: 50
+      min-spare: 5
+  servlet:
+    context-parameters:
+      # Mask common sensitive headers if logged downstream
+      "[logging.mask-headers]": Authorization
+
 jwt:
   secret: ${JWT_SECRET:JWT_SECRET_LOCAL}
-  expiration-ms: 3600000
+  # Default 1 hour; override via env var (e.g., 900000 for 15 min in prod)
+  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
 
 springdoc:
   swagger-ui:
@@ -33,20 +49,22 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+cors:
+  # Dev-friendly defaults; override via env var CORS_ALLOWED_ORIGINS (e.g., https://app.example.com)
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:"http://localhost:3000,http://localhost:4200"}
+  allow-credentials: ${CORS_ALLOW_CREDENTIALS:false}
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info
-  health:
-    flyway:
-      enabled: true
   endpoint:
     health:
       probes:
         enabled: true
       group:
         readiness:
-          include: db,flyway
+          include: db
         liveness:
           include: ping

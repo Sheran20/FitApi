@@ -16,12 +16,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @RestController
@@ -48,12 +48,15 @@ public class WorkoutSessionController {
     // POST /workouts
     @PostMapping
     public ResponseEntity<WorkoutSessionView> create(@Valid @RequestBody CreateWorkoutSessionRequest body,
-                                                     Authentication authentication) {
+                                                     @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
 
-        String userEmail = authentication.getName(); // comes from JWT
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId(); // from JWT principal
 
         // Build entity using mapper + current user
-        WorkoutSession session = WorkoutMapper.fromCreateRequest(body, userEmail);
+        WorkoutSession session = WorkoutMapper.fromCreateRequest(body, userId);
 
         // Validate date order
         if (session.getEndedAt() != null &&
@@ -77,10 +80,13 @@ public class WorkoutSessionController {
     // GET /workouts/{id}
     @GetMapping("/{id}")
     public ResponseEntity<WorkoutSessionView> get(@PathVariable Long id,
-                                                  Authentication authentication) {
-        String userEmail = authentication.getName();
+                                                  @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
-        return sessionRepo.findByIdAndUserId(id, userEmail)
+        return sessionRepo.findByIdAndUserId(id, userId)
                 .map(WorkoutMapper::toSessionView)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
@@ -89,17 +95,20 @@ public class WorkoutSessionController {
     // GET /workouts?from=&to=&page=&size=&sort=startedAt,desc
     @GetMapping
     public Page<WorkoutSessionView> list(
-            @RequestParam(required = false) LocalDateTime from,
-            @RequestParam(required = false) LocalDateTime to,
+            @RequestParam(required = false) OffsetDateTime from,
+            @RequestParam(required = false) OffsetDateTime to,
             Pageable pageable,
-            Authentication authentication
+            @AuthenticationPrincipal com.sgt.fitapi.model.User user
     ) {
-        String userEmail = authentication.getName();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
         var spec = Specification.allOf(
-                WorkoutSessionSpecs.userEquals(userEmail),
-                WorkoutSessionSpecs.startedAtFrom(from),
-                WorkoutSessionSpecs.startedAtTo(to)
+                WorkoutSessionSpecs.userEquals(userId),
+                WorkoutSessionSpecs.startedAtFrom(from != null ? from.toInstant() : null),
+                WorkoutSessionSpecs.startedAtTo(to != null ? to.toInstant() : null)
         );
 
         Page<WorkoutSession> page = sessionRepo.findAll(spec, pageable);
@@ -110,10 +119,13 @@ public class WorkoutSessionController {
     @PutMapping("/{id}")
     public ResponseEntity<WorkoutSessionView> update(@PathVariable Long id,
                                                      @Valid @RequestBody UpdateWorkoutSessionRequest body,
-                                                     Authentication authentication) {
-        String userEmail = authentication.getName();
+                                                     @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
-        var optional = sessionRepo.findByIdAndUserId(id, userEmail);
+        var optional = sessionRepo.findByIdAndUserId(id, userId);
         if (optional.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
@@ -139,10 +151,13 @@ public class WorkoutSessionController {
     // DELETE /workouts/{id}
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id,
-                                       Authentication authentication) {
-        String userEmail = authentication.getName();
+                                       @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
-        var optional = sessionRepo.findByIdAndUserId(id, userEmail);
+        var optional = sessionRepo.findByIdAndUserId(id, userId);
         if (optional.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
@@ -158,12 +173,15 @@ public class WorkoutSessionController {
     public ResponseEntity<List<WorkoutSetView>> listSets(
             @PathVariable Long id,
             @RequestParam(required = false) Long exerciseId,
-            Authentication authentication
+            @AuthenticationPrincipal com.sgt.fitapi.model.User user
     ) {
-        String userEmail = authentication.getName();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
         // ensure session exists and belongs to this user
-        WorkoutSession session = sessionRepo.findByIdAndUserId(id, userEmail)
+        WorkoutSession session = sessionRepo.findByIdAndUserId(id, userId)
                 .orElse(null);
 
         if (session == null) {
@@ -190,11 +208,14 @@ public class WorkoutSessionController {
     @PostMapping("/{id}/sets")
     public ResponseEntity<WorkoutSetView> addSet(@PathVariable Long id,
                                                  @Valid @RequestBody CreateWorkoutSetRequest body,
-                                                 Authentication authentication) {
+                                                 @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
 
-        String userEmail = authentication.getName();
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
-        WorkoutSession session = sessionRepo.findByIdAndUserId(id, userEmail)
+        WorkoutSession session = sessionRepo.findByIdAndUserId(id, userId)
                 .orElse(null);
 
         if (session == null) {
@@ -227,10 +248,13 @@ public class WorkoutSessionController {
     // GET /workouts/{id}/full
     @GetMapping("/{id}/full")
     public ResponseEntity<WorkoutFullView> getFull(@PathVariable Long id,
-                                                   Authentication authentication) {
-        String userEmail = authentication.getName();
+                                                   @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
-        var optional = sessionRepo.findByIdAndUserId(id, userEmail);
+        var optional = sessionRepo.findByIdAndUserId(id, userId);
         if (optional.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
@@ -245,10 +269,13 @@ public class WorkoutSessionController {
     // GET /workouts/{id}/summary
     @GetMapping("/{id}/summary")
     public ResponseEntity<WorkoutSummaryView> getSummary(@PathVariable Long id,
-                                                         Authentication authentication) {
-        String userEmail = authentication.getName();
+                                                         @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
+        }
+        Long userId = user.getId();
 
-        WorkoutSummaryView summary = summaryService.calculateSummary(id, userEmail);
+        WorkoutSummaryView summary = summaryService.calculateSummary(id, userId);
         return ResponseEntity.ok(summary);
     }
 }

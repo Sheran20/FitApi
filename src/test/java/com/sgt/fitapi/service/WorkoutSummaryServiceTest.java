@@ -33,17 +33,17 @@ class WorkoutSummaryServiceTest {
 
     @Test
     void calculateSummaryEnforcesOwnership() {
-        when(sessionRepo.findByIdAndUserId(anyLong(), org.mockito.ArgumentMatchers.anyString()))
+        when(sessionRepo.findByIdAndUserId(anyLong(), org.mockito.ArgumentMatchers.anyLong()))
                 .thenReturn(Optional.empty());
 
         assertThrows(ResponseStatusException.class, () ->
-                service.calculateSummary(1L, "user@example.com"));
+                service.calculateSummary(1L, 1L));
     }
 
     @Test
     void calculateSummaryAggregatesVolume() {
         WorkoutSession session = new WorkoutSession();
-        session.setUserId("user@example.com");
+        session.setUserId(1L);
 
         var exercise = new com.sgt.fitapi.model.Exercise();
         java.lang.reflect.Field idField;
@@ -68,10 +68,10 @@ class WorkoutSummaryServiceTest {
         set2.setWeight(50.0);
         set2.setExercise(exercise);
 
-        when(sessionRepo.findByIdAndUserId(10L, "user@example.com")).thenReturn(Optional.of(session));
+        when(sessionRepo.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(session));
         when(setRepo.findByWorkoutSessionId(10L)).thenReturn(List.of(set1, set2));
 
-        var summary = service.calculateSummary(10L, "user@example.com");
+        var summary = service.calculateSummary(10L, 1L);
         assertEquals(5 * 100.0 + 10 * 50.0, summary.totalVolume, 0.001);
         assertEquals(2, summary.setsCount);
     }
