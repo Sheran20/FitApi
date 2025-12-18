@@ -26,6 +26,14 @@ spring:
   jackson:
     time-zone: UTC
 
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:fitapidb}
+    username: ${DB_USERNAME:fitapi}
+    password: ${DB_PASSWORD:fitapi}
+    hikari:
+      data-source-properties:
+        sslmode: ${DB_SSLMODE:prefer}
+
 server:
   shutdown: graceful
   tomcat:

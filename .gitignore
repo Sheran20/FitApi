@@ -39,3 +39,5 @@ application-secrets.yml
 application-*.local.yml
 *.jks
 *.p12
+
+project_snapshot.txt
