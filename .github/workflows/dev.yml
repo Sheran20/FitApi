@@ -18,6 +18,20 @@ jobs:
   ci:
     name: Test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fitapi_test
+          POSTGRES_USER: fitapi
+          POSTGRES_PASSWORD: fitapi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U fitapi -d fitapi_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +41,10 @@ jobs:
           java-version: "17"
 
       - name: Run tests (Maven)
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/fitapi_test
+          SPRING_DATASOURCE_USERNAME: fitapi
+          SPRING_DATASOURCE_PASSWORD: fitapi
         run: ./mvnw -q test
 
   deploy_dev:
