@@ -97,9 +97,16 @@ jobs:
             --image "$IMAGE" \
             --revision-suffix "sha-${SHA:0:7}"
 
-          # Ensure failed revisions do not affect traffic
-          az containerapp ingress traffic set -g "$RG" -n "$APP" \
-            --revision-weight "$CUR=100"
+          CUR=$(az containerapp ingress traffic show -g "$RG" -n "$APP" \
+            --query "traffic[?weight==\`100\` && latestRevision==\`false\`].revisionName | [0]" -o tsv)
+
+          if [ -z "$CUR" ]; then
+            CUR=$(az containerapp revision list -g "$RG" -n "$APP" \
+              --query "sort_by([?properties.active==\`true\`], &properties.createdTime)[-1].name" -o tsv)
+          fi
+
+          echo "Pinned current revision: $CUR"
+          az containerapp ingress traffic set -g "$RG" -n "$APP" --revision-weight "$CUR=100"
 
       - name: Wait for latest revision provisioning to succeed
         env:
