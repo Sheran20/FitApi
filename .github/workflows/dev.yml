@@ -97,6 +97,25 @@ jobs:
             --image "$IMAGE" \
             --revision-suffix "sha-${SHA:0:7}"
 
+          NEW_SUFFIX="sha-${SHA:0:7}"
+
+          LATEST=$(az containerapp revision list -g "$RG" -n "$APP" \
+            --query "sort_by(@, &properties.createdTime)[-1].name" -o tsv)
+
+          # Safety fallback: ensure we pick the revision we just deployed
+          if [[ -z "$LATEST" || "$LATEST" == "null" || "$LATEST" != *"$NEW_SUFFIX"* ]]; then
+            LATEST=$(az containerapp revision list -g "$RG" -n "$APP" \
+              --query "reverse(sort_by([?contains(name, '$NEW_SUFFIX')], &properties.createdTime))[0].name" -o tsv)
+          fi
+
+          if [[ -z "$LATEST" || "$LATEST" == "null" ]]; then
+            echo "ERROR: Could not resolve latest revision name"
+            exit 1
+          fi
+
+          echo "LATEST=$LATEST" >> $GITHUB_ENV
+          echo "Resolved latest revision: $LATEST"
+
           CUR=$(az containerapp ingress traffic show -g "$RG" -n "$APP" \
             --query "traffic[?weight==\`100\` && latestRevision==\`false\`].revisionName | [0]" -o tsv)
 
@@ -113,7 +132,7 @@ jobs:
           RG: ${{ vars.AZURE_RG_DEV }}
           APP: ${{ vars.AZURE_CA_DEV }}
         run: |
-          for i in {1..60}; do
+          for i in {1..10}; do
             LATEST=$(az containerapp revision list -g "$RG" -n "$APP" \
               --query "sort_by([].{n:name,t:properties.createdTime}, &t)[-1].n" -o tsv)
             STATE=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$LATEST" \
