@@ -75,6 +75,18 @@ Distributed rate limiting (for example, Redis-backed) is intentionally deferred.
 
 ---
 
+## API Documentation (Swagger/OpenAPI)
+
+FitAPI ships with a production-ready Swagger UI powered by springdoc-openapi.
+
+- **Swagger UI:** `/swagger-ui.html`
+- **OpenAPI JSON:** `/v3/api-docs`
+- **Auth:** Use the "Authorize" button and provide a JWT; secured endpoints send `Authorization: Bearer <token>`.
+- **Security visibility:** Secured endpoints show lock icons in the UI.
+- **Sensitive endpoints:** Actuator endpoints are excluded from documentation.
+
+---
+
 ## Database & Migrations
 
 - PostgreSQL-compatible schema
