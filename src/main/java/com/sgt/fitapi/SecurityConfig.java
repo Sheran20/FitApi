@@ -19,7 +19,6 @@ public class SecurityConfig {
 
     private final UserRepository userRepository;
 
-    // 🔹 Notice: we REMOVED JwtAuthenticationFilter from the constructor
     public SecurityConfig(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
@@ -55,7 +54,9 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/hello",
-                                "/api/auth/**"
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/ping"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

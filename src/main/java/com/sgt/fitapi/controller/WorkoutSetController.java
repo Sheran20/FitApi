@@ -6,6 +6,11 @@ import com.sgt.fitapi.model.WorkoutSession;
 import com.sgt.fitapi.model.WorkoutSet;
 import com.sgt.fitapi.repository.WorkoutSessionRepository;
 import com.sgt.fitapi.repository.WorkoutSetRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -29,6 +34,18 @@ public class WorkoutSetController {
 
     // GET /workout-sets?workoutSessionId=&exerciseId=
     @GetMapping
+    @Operation(
+            summary = "List workout sets",
+            description = "Returns sets for a specific session owned by the authenticated user. Requires workoutSessionId and supports optional exerciseId filtering."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request",
+                    content = @Content(schema = @Schema(ref = "#/components/schemas/ErrorResponse"))
+            )
+    })
     public ResponseEntity<List<WorkoutSetView>> list(
             @RequestParam(required = false) Long workoutSessionId,
             @RequestParam(required = false) Long exerciseId,
@@ -70,6 +87,13 @@ public class WorkoutSetController {
 
     // GET /workout-sets/{id}
     @GetMapping("/{id}")
+    @Operation(
+            summary = "Get a workout set by ID",
+            description = "Returns a set if it belongs to a session owned by the authenticated user. Returns 404 if not found."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK")
+    })
     public ResponseEntity<WorkoutSetView> get(@PathVariable Long id,
                                               @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
         if (user == null) {
@@ -89,6 +113,13 @@ public class WorkoutSetController {
 
     // DELETE /workout-sets/{id}
     @DeleteMapping("/{id}")
+    @Operation(
+            summary = "Delete a workout set",
+            description = "Deletes a set if it belongs to a session owned by the authenticated user. Returns 204 on success."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "No Content")
+    })
     public ResponseEntity<Void> delete(@PathVariable Long id,
                                        @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
 

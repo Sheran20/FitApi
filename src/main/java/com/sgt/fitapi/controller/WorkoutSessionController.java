@@ -10,6 +10,12 @@ import com.sgt.fitapi.repository.WorkoutSessionRepository;
 import com.sgt.fitapi.repository.WorkoutSessionSpecs;
 import com.sgt.fitapi.repository.WorkoutSetRepository;
 import com.sgt.fitapi.service.WorkoutSummaryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -47,6 +53,41 @@ public class WorkoutSessionController {
 
     // POST /workouts
     @PostMapping
+    @Operation(
+            summary = "Create a workout session",
+            description = "Creates a workout session for the authenticated user. Validates time order and returns the created session with a Location header.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Workout session details",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = CreateWorkoutSessionRequest.class),
+                            examples = @ExampleObject(
+                                    name = "CreateWorkoutSession",
+                                    value = "{\n  \"startedAt\": \"2025-01-15T10:00:00Z\",\n  \"endedAt\": \"2025-01-15T11:15:00Z\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"notes\": \"Leg day strength focus\"\n}"
+                            )
+                    )
+            )
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "Created",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = WorkoutSessionView.class),
+                            examples = @ExampleObject(
+                                    name = "WorkoutSessionCreated",
+                                    value = "{\n  \"id\": 123,\n  \"userId\": 42,\n  \"startedAt\": \"2025-01-15T10:00:00Z\",\n  \"endedAt\": \"2025-01-15T11:15:00Z\",\n  \"timezone\": \"America/Los_Angeles\",\n  \"notes\": \"Leg day strength focus\"\n}"
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request",
+                    content = @Content(schema = @Schema(ref = "#/components/schemas/ErrorResponse"))
+            )
+    })
     public ResponseEntity<WorkoutSessionView> create(@Valid @RequestBody CreateWorkoutSessionRequest body,
                                                      @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
 
@@ -79,6 +120,13 @@ public class WorkoutSessionController {
 
     // GET /workouts/{id}
     @GetMapping("/{id}")
+    @Operation(
+            summary = "Get a workout session by ID",
+            description = "Returns the requested workout session if it belongs to the authenticated user. Returns 404 if not found."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK")
+    })
     public ResponseEntity<WorkoutSessionView> get(@PathVariable Long id,
                                                   @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
         if (user == null) {
@@ -94,6 +142,18 @@ public class WorkoutSessionController {
 
     // GET /workouts?from=&to=&page=&size=&sort=startedAt,desc
     @GetMapping
+    @Operation(
+            summary = "List workout sessions",
+            description = "Returns a pageable list of the authenticated user's sessions, optionally filtered by a start date range."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request",
+                    content = @Content(schema = @Schema(ref = "#/components/schemas/ErrorResponse"))
+            )
+    })
     public Page<WorkoutSessionView> list(
             @RequestParam(required = false) OffsetDateTime from,
             @RequestParam(required = false) OffsetDateTime to,
@@ -117,6 +177,18 @@ public class WorkoutSessionController {
 
     // PUT /workouts/{id}
     @PutMapping("/{id}")
+    @Operation(
+            summary = "Update a workout session",
+            description = "Updates an existing workout session owned by the authenticated user. Validates time order and returns the updated session."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request",
+                    content = @Content(schema = @Schema(ref = "#/components/schemas/ErrorResponse"))
+            )
+    })
     public ResponseEntity<WorkoutSessionView> update(@PathVariable Long id,
                                                      @Valid @RequestBody UpdateWorkoutSessionRequest body,
                                                      @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
@@ -150,6 +222,13 @@ public class WorkoutSessionController {
 
     // DELETE /workouts/{id}
     @DeleteMapping("/{id}")
+    @Operation(
+            summary = "Delete a workout session",
+            description = "Deletes a workout session owned by the authenticated user. Returns 204 on success."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "No Content")
+    })
     public ResponseEntity<Void> delete(@PathVariable Long id,
                                        @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
         if (user == null) {
@@ -170,6 +249,13 @@ public class WorkoutSessionController {
 
     // GET /workouts/{id}/sets[?exerciseId=]
     @GetMapping("/{id}/sets")
+    @Operation(
+            summary = "List workout sets for a session",
+            description = "Returns all sets for the given session owned by the authenticated user. Optionally filter by exerciseId."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK")
+    })
     public ResponseEntity<List<WorkoutSetView>> listSets(
             @PathVariable Long id,
             @RequestParam(required = false) Long exerciseId,
@@ -206,6 +292,18 @@ public class WorkoutSessionController {
 
     // POST /workouts/{id}/sets
     @PostMapping("/{id}/sets")
+    @Operation(
+            summary = "Create a set for a session",
+            description = "Creates a new set under the given session owned by the authenticated user."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Created"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request",
+                    content = @Content(schema = @Schema(ref = "#/components/schemas/ErrorResponse"))
+            )
+    })
     public ResponseEntity<WorkoutSetView> addSet(@PathVariable Long id,
                                                  @Valid @RequestBody CreateWorkoutSetRequest body,
                                                  @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
@@ -247,6 +345,13 @@ public class WorkoutSessionController {
 
     // GET /workouts/{id}/full
     @GetMapping("/{id}/full")
+    @Operation(
+            summary = "Get full session details",
+            description = "Returns the session with all nested sets and exercises for the authenticated user."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK")
+    })
     public ResponseEntity<WorkoutFullView> getFull(@PathVariable Long id,
                                                    @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
         if (user == null) {
@@ -268,6 +373,13 @@ public class WorkoutSessionController {
 
     // GET /workouts/{id}/summary
     @GetMapping("/{id}/summary")
+    @Operation(
+            summary = "Get workout summary",
+            description = "Returns a computed summary for the session owned by the authenticated user."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK")
+    })
     public ResponseEntity<WorkoutSummaryView> getSummary(@PathVariable Long id,
                                                          @AuthenticationPrincipal com.sgt.fitapi.model.User user) {
         if (user == null) {
