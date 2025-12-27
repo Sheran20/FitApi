@@ -104,6 +104,7 @@ Indexes are chosen based on observed query patterns rather than premature optimi
 - No secrets are committed to source control or container images
 - Secrets are stored in **Azure Key Vault**
 - The application accesses secrets using a **system-assigned managed identity**
+- Local/dev defaults in configuration are for development only and must be overridden in production
 
 This approach ensures:
 - secrets are never baked into images
@@ -143,17 +144,36 @@ This approach keeps the deployment cost-efficient, operationally simple, and ali
 
 ---
 
-## Deployment Workflow (Pre-CI/CD)
+## Deployment Workflow (CI/CD – Phase 6)
 
-Deployment is intentionally manual at this stage:
+- Push to `main` triggers GitHub Actions
+- Pipeline runs tests, builds the Docker image, and pushes to Azure Container Registry
+- Images are tagged immutably using the commit SHA
+- Azure Container Apps deploys a new revision per image
+- Traffic remains pinned to the current revision until the new revision is ready
+- Traffic is explicitly shifted after verification
+- Failed deployments do not impact live traffic
+- No portal-based deployment steps are required
 
-1. Build the Docker image locally
-2. Push the image to Azure Container Registry
-3. Update the image tag on the Container App
-4. Azure creates a new revision and routes traffic
-5. Rollback is possible by switching revisions
+### Authentication & Security
 
-This workflow provides immutable deployments and safe rollbacks without CI/CD complexity. Automated pipelines are planned as a later phase.
+- GitHub Actions authenticates to Azure using OIDC (no secrets)
+- Least-privilege RBAC for the CI identity
+- Container App uses a system-assigned managed identity
+- Secrets are stored in Azure Key Vault and accessed via managed identity
+- No secrets in repo or CI logs
+
+### Revision-Based Deployments
+
+- Multiple revision mode enabled
+- Deterministic traffic control
+- Previous revisions retained for rollback
+
+### Rollback Strategy
+
+- Traffic rollback by shifting traffic to a previous revision
+- Image rollback by redeploying an existing immutable image tag
+- No rebuilds required for rollback
 
 ---
 
@@ -190,11 +210,12 @@ Infrastructure complexity is added only when justified by real requirements.
 
 ## Future Enhancements
 
-- CI/CD automation
-- Automated health checks and deployment gates
+- Production environment with gated releases
+- Canary or progressive traffic shifting
+- Post-deploy smoke testing
+- Enhanced observability
 - Distributed rate limiting and edge protection
 - Role-based access control hardening
-- Metrics, tracing, and structured observability
 
 ---
 

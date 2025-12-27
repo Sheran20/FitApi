@@ -41,3 +41,4 @@ application-*.local.yml
 *.p12
 
 project_snapshot.txt
+log.txt
