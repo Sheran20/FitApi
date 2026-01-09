@@ -52,7 +52,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("FitAPI")
                         .version("v1")
-                        .description("FitAPI endpoints for workouts, sets, exercises, and auth."))
+                        .description("FitAPI endpoints for auth, workouts, sets, and exercises."))
                 .components(new Components()
                         .addSchemas("ErrorResponse", errorSchema))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
@@ -62,12 +62,15 @@ public class OpenApiConfig {
                                 .scheme("bearer")
                                 .bearerFormat("JWT"))
                 .addServersItem(new Server()
+                        .url("http://fitapi-app:8080")
+                        .description("Azure"))
+                .addServersItem(new Server()
                         .url("http://localhost:8080")
                         .description("Local"))
-                .addServersItem(new Server()
-                        .url("http://fitapi-app:8080")
-                        .description("Docker network"))
                 .tags(List.of(
+                        new Tag()
+                                .name("Authentication")
+                                .description("User registration, login, and authenticated user info."),
                         new Tag()
                                 .name("Workouts")
                                 .description("Create, update, and query workout sessions. All endpoints require a valid JWT."),
@@ -77,9 +80,6 @@ public class OpenApiConfig {
                         new Tag()
                                 .name("Exercises")
                                 .description("Read-only exercise catalog endpoints for the authenticated user."),
-                        new Tag()
-                                .name("Authentication")
-                                .description("User registration, login, and authenticated user info."),
                         new Tag()
                                 .name("Public")
                                 .description("Public endpoints that do not require authentication.")
