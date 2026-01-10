@@ -156,7 +156,50 @@ This approach keeps the deployment cost-efficient, operationally simple, and ali
 
 ---
 
-## Deployment Workflow (CI/CD – Phase 6)
+## Architecture & Deployment Flow
+
+FitAPI separates infrastructure, deployment, and runtime concerns clearly:
+
+- **Terraform (infrastructure + IAM)**  
+  Provisions long-lived Azure resources and permissions only.
+
+- **Developers (manual setup)**  
+  - Populate **Key Vault** secrets per environment  
+  - Configure **GitHub Actions** environment variables to target the correct infrastructure
+
+- **GitHub Actions (build + deploy)**  
+  - Builds immutable container images  
+  - Pushes images to **Azure Container Registry**  
+  - Updates the **Azure Container App** image  
+  - Injects **Key Vault** secret references (not secret values)
+
+- **Azure Container Apps (runtime + secret resolution)**  
+  Resolves Key Vault secrets at runtime using managed identity.
+
+Terraform provisions long-lived infrastructure only. Application builds, deployments, and secret wiring are intentionally separated.
+
+---
+
+## Infrastructure as Code (Terraform)
+
+Terraform is used to:
+
+- Provision and recreate Azure infrastructure deterministically
+- Support safe teardown and recreation of environments
+
+Terraform does not manage runtime configuration or secrets, and it is intentionally not used for application deployments.
+
+### Design Decisions
+
+- Terraform is not run in CI to avoid tightly coupling infrastructure changes with application builds
+- Secrets are not stored in Terraform or CI to minimize exposure risk
+- Environment wiring (GitHub Actions variables, Key Vault secrets) is manual by design
+
+These are intentional trade-offs to reduce complexity and prevent unsafe automation.
+
+---
+
+## Deployment Workflow (CI/CD)
 
 - Push to `main` triggers GitHub Actions
 - Pipeline runs tests, builds the Docker image, and pushes to Azure Container Registry
@@ -228,6 +271,15 @@ Infrastructure complexity is added only when justified by real requirements.
 - Enhanced observability
 - Distributed rate limiting and edge protection
 - Role-based access control hardening
+
+---
+
+## Future Infrastructure Enhancements (Optional)
+
+- Remote Terraform state + locking for multi-user or CI scenarios
+- Multi-environment support (dev / prod) via `tfvars`
+- Policy-as-code for guardrails
+- Drift detection once infrastructure becomes long-lived
 
 ---
 
