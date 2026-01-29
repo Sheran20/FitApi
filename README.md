@@ -108,6 +108,42 @@ The schema includes explicit indexes to optimize common access patterns:
 
 Indexes are chosen based on observed query patterns rather than premature optimization.
 
+### Index Performance Benchmark
+
+A benchmark script is included to measure the real-world impact of database indexes. The test generates 50,000+ rows and compares query execution times with and without indexes.
+
+**Results (50,000 sessions, 50,000 sets):**
+
+| Query | With Index | Without Index | Speedup |
+|-------|------------|---------------|---------|
+| User lookup by email | 0.013ms | 0.018ms | 1.4x |
+| Sessions for user (sorted) | 0.028ms | 1.477ms | **53x** |
+| Sessions in date range | 0.011ms | 1.284ms | **117x** |
+| Sets for session | 0.012ms | 1.729ms | **144x** |
+| Sets for session + exercise | 0.007ms | 1.350ms | **193x** |
+| Aggregate volume calculation | 0.024ms | 1.223ms | **51x** |
+
+Without indexes, PostgreSQL performs sequential scans across all rows. With indexes, it reads only the relevant rows directly via B-tree traversal.
+
+**Running the benchmark:**
+
+```bash
+# Start the database
+docker compose up -d
+
+# Run the benchmark (generates test data, benchmarks with/without indexes)
+docker exec -i fitapi-postgres psql -U fitapi -d fitapidb < scripts/benchmark_indexes.sql
+```
+
+The script:
+1. Generates 1,000 test users, 50,000 sessions, and 50,000 sets
+2. Runs `EXPLAIN ANALYZE` on common queries with indexes
+3. Drops all custom indexes
+4. Runs the same queries without indexes (sequential scans)
+5. Recreates the indexes
+
+**Warning:** This adds test data to your database. Use on a dev environment only.
+
 ---
 
 ## Configuration & Secrets
